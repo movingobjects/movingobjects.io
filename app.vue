@@ -13,6 +13,9 @@
 <script setup>
 import { THEME } from '~/config/theme'
 
+const router = useRouter()
+const route = useRoute()
+
 useHead({
   title: 'Moving Objects — Creative Studio of Scott Thiessen',
   meta: [
@@ -49,6 +52,11 @@ onMounted(() => {
   Object.entries(THEME.colors).forEach(([key, value]) => {
     document.documentElement.style.setProperty(`--color-${key}`, value)
   })
+
+  // Redirect any non-root path back to root
+  if (route.path !== '/') {
+    router.push('/')
+  }
 })
 
 </script>
