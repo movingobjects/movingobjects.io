@@ -39,9 +39,9 @@ const CONFIG = {
   tailLineWidthMin: 0.75,
   tailLineWidthMax: 1,
   tailGradient: [
-    { position: 0.0, color: '#40d' },
+    { position: 0.0, color: '#50d' },
     { position: 0.5, color: '#40d' },
-    { position: 1.0, color: '#292969' }
+    { position: 1.0, color: '#202969' }
   ],
   tailGradientHeatmap: [
     { position: 0.0, color: '#f77' },
