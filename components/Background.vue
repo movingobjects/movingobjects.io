@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { lerp, norm, random, lerpGradient } from '~/utils/math'
+import { lerp, norm, random, map, lerpGradient } from '~/utils/math'
 import { THEME } from '~/config/theme'
 
 interface Position {
@@ -25,11 +25,13 @@ interface Tube {
   vx: number
   vy: number
   tail: Position[]
+  age: number // frames since spawn
+  dying: boolean // whether tube is fading out
+  deathAge: number // frames since marked as dying
 }
 
 const CONFIG = {
   bgColor: THEME.colors.bg,
-  tubeCount: 15,
   tubeRadiusMin: 25,
   tubeRadiusMax: 25,
   tubeRimWidth: 7,
@@ -55,40 +57,85 @@ const CONFIG = {
   friction: 0.99,
   maxSpeed: 10,
   repulsionStrength: 50,
-  repulsionDistance: 50
+  repulsionDistance: 50,
+  spawnInterval: 250, // milliseconds between spawns
+  fadeInDuration: 60, // frames for fade-in (60 frames = 1 second at 60fps)
+  fadeOutDuration: 180 // frames for fade-out (60 frames = 1 second at 60fps)
 } as const
+
+// Calculate max tube count based on viewport size
+function getMaxTubeCount(): number {
+  const viewportSize = window.innerWidth + window.innerHeight
+  const count = map(viewportSize, 1000, 2500, 5, 15);
+  return Math.max(5, Math.min(20, Math.round(count)))
+}
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
 let animId: number | null = null
+let spawnIntervalId: number | null = null
 let tubes: Tube[] = []
 let targets: Target[] = []
+let maxTubeCount = 15 // Will be calculated on mount and resize
 
-function createTubes(count: number): Tube[] {
-  if (!canvas) return []
+function createTube(): Tube | null {
+  if (!canvas) return null
 
-  const tubes: Tube[] = []
+  const sizeFactor = random()
+  const radius = lerp(CONFIG.tubeRadiusMin, CONFIG.tubeRadiusMax, sizeFactor)
 
-  for (let i = 0; i < count; i++) {
-    const sizeFactor = random()
-    const radius = lerp(CONFIG.tubeRadiusMin, CONFIG.tubeRadiusMax, sizeFactor)
-
-    tubes.push({
-      radius,
-      x: random(0, canvas.width),
-      y: random(0, canvas.height),
-      vx: 0,
-      vy: 0,
-      tail: []
-    })
+  return {
+    radius,
+    x: random(0, canvas.width),
+    y: random(0, canvas.height),
+    vx: 0,
+    vy: 0,
+    tail: [],
+    age: 0,
+    dying: false,
+    deathAge: 0
   }
-
-  return tubes
 }
 
-function applyGravity(obj: Tube): void {
+function spawnTube(): void {
+  if (tubes.length >= maxTubeCount) return
+
+  const newTube = createTube()
+  if (newTube) {
+    tubes.push(newTube)
+  }
+}
+
+function despawnTube(): void {
+  // Find the first tube that isn't already dying
+  const tubeToKill = tubes.find(tube => !tube.dying)
+  if (tubeToKill) {
+    tubeToKill.dying = true
+    tubeToKill.deathAge = 0
+  }
+}
+
+function startSpawning(): void {
+  // Spawn tubes gradually
+  spawnIntervalId = window.setInterval(() => {
+    if (tubes.length < maxTubeCount) {
+      spawnTube()
+    } else if (tubes.length > maxTubeCount) {
+      despawnTube();
+    }
+  }, CONFIG.spawnInterval)
+}
+
+function stopSpawning(): void {
+  if (spawnIntervalId !== null) {
+    clearInterval(spawnIntervalId)
+    spawnIntervalId = null
+  }
+}
+
+function applyGravity(tube: Tube): void {
   if (!canvas || targets.length === 0) return
 
   // Find the nearest target
@@ -96,8 +143,8 @@ function applyGravity(obj: Tube): void {
   let nearestDistance = Infinity
 
   targets.forEach(target => {
-    const dx = target.x - obj.x
-    const dy = target.y - obj.y
+    const dx = target.x - tube.x
+    const dy = target.y - tube.y
     const distance = Math.sqrt(dx * dx + dy * dy)
 
     if (distance < nearestDistance) {
@@ -108,25 +155,25 @@ function applyGravity(obj: Tube): void {
 
   // Only apply gravity from the nearest target
   if (nearestDistance > 1) {
-    const dx = nearestTarget.x - obj.x
-    const dy = nearestTarget.y - obj.y
+    const dx = nearestTarget.x - tube.x
+    const dy = nearestTarget.y - tube.y
 
     // Use distance squared for smoother falloff, with a minimum distance to prevent extreme forces
     const minDistance = 50
     const effectiveDistance = Math.max(nearestDistance, minDistance)
     const force = nearestTarget.strength / effectiveDistance
 
-    obj.vx += (dx / nearestDistance) * force
-    obj.vy += (dy / nearestDistance) * force
+    tube.vx += (dx / nearestDistance) * force
+    tube.vy += (dy / nearestDistance) * force
   }
 }
 
-function applyRepulsion(obj: Tube): void {
+function applyRepulsion(tube: Tube): void {
   tubes.forEach(otherTube => {
-    if (obj === otherTube) return
+    if (tube === otherTube) return
 
-    const dx = obj.x - otherTube.x
-    const dy = obj.y - otherTube.y
+    const dx = tube.x - otherTube.x
+    const dy = tube.y - otherTube.y
     const distance = Math.sqrt(dx * dx + dy * dy)
 
     // Only apply repulsion if tubes are within repulsion distance
@@ -134,76 +181,112 @@ function applyRepulsion(obj: Tube): void {
       // Stronger repulsion when closer
       const force = CONFIG.repulsionStrength / Math.max(25, distance * distance)
 
-      obj.vx += (dx / distance) * force
-      obj.vy += (dy / distance) * force
+      tube.vx += (dx / distance) * force
+      tube.vy += (dy / distance) * force
     }
   })
 }
 
-function updateTubeect(obj: Tube): void {
+function updateTubeect(tube: Tube): void {
   if (!canvas) return
 
+  // Increment age
+  tube.age++
+
+  // If dying, increment death age
+  if (tube.dying) {
+    tube.deathAge++
+  }
+
   // Add current position to tail
-  obj.tail.push({ x: obj.x, y: obj.y })
-  if (obj.tail.length > CONFIG.tailLength) {
-    obj.tail.shift()
+  tube.tail.push({ x: tube.x, y: tube.y })
+  if (tube.tail.length > CONFIG.tailLength) {
+    tube.tail.shift()
   }
 
   // Apply gravity from targets
-  applyGravity(obj)
+  applyGravity(tube)
 
   // Apply repulsion from other tubes
-  applyRepulsion(obj)
+  applyRepulsion(tube)
 
   // Apply friction
-  obj.vx *= CONFIG.friction
-  obj.vy *= CONFIG.friction
+  tube.vx *= CONFIG.friction
+  tube.vy *= CONFIG.friction
 
   // Limit max speed
-  const speed = Math.sqrt(obj.vx * obj.vx + obj.vy * obj.vy)
+  const speed = Math.sqrt(tube.vx * tube.vx + tube.vy * tube.vy)
   if (speed > CONFIG.maxSpeed) {
-    obj.vx = (obj.vx / speed) * CONFIG.maxSpeed
-    obj.vy = (obj.vy / speed) * CONFIG.maxSpeed
+    tube.vx = (tube.vx / speed) * CONFIG.maxSpeed
+    tube.vy = (tube.vy / speed) * CONFIG.maxSpeed
   }
 
   // Update position
-  obj.x += obj.vx
-  obj.y += obj.vy
+  tube.x += tube.vx
+  tube.y += tube.vy
 }
 
-function drawTailSegment(obj: Tube, segmentIndex: number): void {
-  if (!ctx || obj.tail.length < 2 || segmentIndex >= obj.tail.length - 1) return
+function drawTailSegment(tube: Tube, segmentIndex: number): void {
+  if (!ctx || tube.tail.length < 2 || segmentIndex >= tube.tail.length - 1) return
+
+  // Calculate opacity based on tube state
+  let opacity = 1
+
+  if (tube.dying) {
+    // Fade out
+    const fadeOutProgress = Math.min(tube.deathAge / CONFIG.fadeOutDuration, 1)
+    opacity = 1 - fadeOutProgress
+  } else {
+    // Fade in
+    opacity = Math.min(tube.age / CONFIG.fadeInDuration, 1)
+  }
 
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
-  const t = norm(segmentIndex, 0, obj.tail.length)
-  const lineWidth = 2 * obj.radius * lerp(CONFIG.tailLineWidthMin, CONFIG.tailLineWidthMax, t)
+  const t = norm(segmentIndex, 0, tube.tail.length)
+  const lineWidth = 2 * tube.radius * lerp(CONFIG.tailLineWidthMin, CONFIG.tailLineWidthMax, t)
   const color = lerpGradient(1 - t, CONFIG.tailGradient)
-  const start = obj.tail[segmentIndex]!
-  const end = obj.tail[segmentIndex + 1]!
+  const start = tube.tail[segmentIndex]!
+  const end = tube.tail[segmentIndex + 1]!
 
+  ctx.globalAlpha = opacity
   ctx.strokeStyle = color
   ctx.lineWidth = lineWidth
   ctx.beginPath()
   ctx.moveTo(start.x, start.y)
   ctx.lineTo(end.x, end.y)
   ctx.stroke()
+  ctx.globalAlpha = 1
 }
 
-function drawTubeectHead(obj: Tube): void {
+function drawTubeectHead(tube: Tube): void {
   if (!ctx) return
 
-  // Draw main circle
+  // Calculate opacity based on tube state
+  let opacity = 1
+
+  if (tube.dying) {
+    // Fade out
+    const fadeOutProgress = Math.min(tube.deathAge / CONFIG.fadeOutDuration, 1)
+    opacity = 1 - fadeOutProgress
+  } else {
+    // Fade in
+    opacity = Math.min(tube.age / CONFIG.fadeInDuration, 1)
+  }
+
+  // Draw outer circle
+  ctx.globalAlpha = opacity
   ctx.fillStyle = lerpGradient(0, CONFIG.tailGradient)
   ctx.beginPath()
-  ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2)
+  ctx.arc(tube.x, tube.y, tube.radius, 0, Math.PI * 2)
   ctx.fill()
 
-  // Draw main circle
+  // Draw inner circle (background color)
+  ctx.globalAlpha = 1 // Inner circle always fully opaque
   ctx.fillStyle = CONFIG.bgColor
   ctx.beginPath()
-  ctx.arc(obj.x, obj.y, obj.radius - CONFIG.tubeRimWidth, 0, Math.PI * 2)
+  ctx.arc(tube.x, tube.y, tube.radius - CONFIG.tubeRimWidth, 0, Math.PI * 2)
   ctx.fill()
 }
 
@@ -212,25 +295,25 @@ function drawAllTailsLayered(): void {
 
   // Find the maximum tail length among all tubes
   let maxTailLength = 0
-  tubes.forEach(obj => {
-    if (obj.tail.length > maxTailLength) {
-      maxTailLength = obj.tail.length
+  tubes.forEach(tube => {
+    if (tube.tail.length > maxTailLength) {
+      maxTailLength = tube.tail.length
     }
   })
 
   // Draw tail segments from oldest to newest across all tubes
   for (let segmentIndex = 0; segmentIndex < maxTailLength - 1; segmentIndex++) {
-    tubes.forEach(obj => {
-      if (segmentIndex < obj.tail.length - 1) {
-        drawTailSegment(obj, segmentIndex)
+    tubes.forEach(tube => {
+      if (segmentIndex < tube.tail.length - 1) {
+        drawTailSegment(tube, segmentIndex)
       }
     })
   }
 }
 
 function drawAllTubeectHeads(): void {
-  tubes.forEach(obj => {
-    drawTubeectHead(obj)
+  tubes.forEach(tube => {
+    drawTubeectHead(tube)
   })
 }
 
@@ -242,6 +325,9 @@ function handleResize(): void {
 
   canvas.width = width
   canvas.height = height
+
+  // Update max tube count based on new viewport size
+  maxTubeCount = getMaxTubeCount()
 }
 
 function createTargets(count: number): Target[] {
@@ -278,14 +364,14 @@ function relocateTarget(target: Target): void {
 }
 
 function checkTargetCollisions(): void {
-  tubes.forEach(obj => {
+  tubes.forEach(tube => {
     targets.forEach(target => {
-      const dx = target.x - obj.x
-      const dy = target.y - obj.y
+      const dx = target.x - tube.x
+      const dy = target.y - tube.y
       const distance = Math.sqrt(dx * dx + dy * dy)
 
       // Check if tube is within 1 radius of target
-      if (distance <= obj.radius + CONFIG.targetRadius) {
+      if (distance <= tube.radius + CONFIG.targetRadius) {
         relocateTarget(target)
       }
     })
@@ -308,8 +394,16 @@ function animate(): void {
   checkTargetCollisions()
 
   // Update all tubes
-  tubes.forEach(obj => {
-    updateTubeect(obj)
+  tubes.forEach(tube => {
+    updateTubeect(tube)
+  })
+
+  // Remove tubes that have finished fading out
+  tubes = tubes.filter(tube => {
+    if (tube.dying && tube.deathAge >= CONFIG.fadeOutDuration) {
+      return false // Remove this tube
+    }
+    return true // Keep this tube
   })
 
   // Draw all tails with proper layering (oldest to newest)
@@ -328,17 +422,25 @@ onMounted(() => {
   ctx = canvas.getContext('2d')
   if (!ctx) return
 
+  // Calculate initial max tube count
+  maxTubeCount = getMaxTubeCount()
+
   handleResize()
   window.addEventListener('resize', handleResize)
 
-  tubes = createTubes(CONFIG.tubeCount)
+  // Start with no tubes
+  tubes = []
   targets = createTargets(CONFIG.targetCount)
+
+  // Start spawning tubes gradually
+  startSpawning()
 
   animate()
 })
 
 onUnmounted(() => {
   if (animId !== null) cancelAnimationFrame(animId)
+  stopSpawning()
   window.removeEventListener('resize', handleResize)
 })
 </script>
