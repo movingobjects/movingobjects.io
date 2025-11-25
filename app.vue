@@ -3,8 +3,9 @@
     <Background />
     <article>
       <p><strong>Moving Objects</strong> is the independent creative studio of Scott Thiessen.</p>
-      <p>Scott is a Seattle-based design technologist and front-end developer endeavoring to create interactive
-        experiences that engage people in new and memorable ways.</p>
+      <p>Scott is a Seattle-based design technologist and front-end developer endeavoring to create smart, engaging,
+        memorable interactive experiences.
+      </p>
     </article>
   </div>
 </template>

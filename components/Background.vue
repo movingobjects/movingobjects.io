@@ -25,9 +25,9 @@ interface Tube {
   vx: number
   vy: number
   tail: Position[]
-  age: number // frames since spawn
+  age: number // milliseconds since spawn
   dying: boolean // whether tube is fading out
-  deathAge: number // frames since marked as dying
+  deathAge: number // milliseconds since marked as dying
 }
 
 const CONFIG = {
@@ -59,8 +59,8 @@ const CONFIG = {
   repulsionStrength: 50,
   repulsionDistance: 50,
   spawnInterval: 250, // milliseconds between spawns
-  fadeInDuration: 120, // frames for fade-in (60 frames = 1 second at 60fps)
-  fadeOutDuration: 180 // frames for fade-out (60 frames = 1 second at 60fps)
+  fadeInDuration: 2000, // milliseconds for fade-in
+  fadeOutDuration: 3000 // milliseconds for fade-out
 } as const
 
 // Calculate max tube count based on viewport size
@@ -79,6 +79,7 @@ let spawnIntervalId: number | null = null
 let tubes: Tube[] = []
 let targets: Target[] = []
 let maxTubeCount = 15 // Will be calculated on mount and resize
+let lastFrameTime = 0
 
 function createTube(): Tube | null {
   if (!canvas) return null
@@ -187,15 +188,15 @@ function applyRepulsion(tube: Tube): void {
   })
 }
 
-function updateTubeect(tube: Tube): void {
+function updateTube(tube: Tube, deltaTime: number): void {
   if (!canvas) return
 
-  // Increment age
-  tube.age++
+  // Increment age by deltaTime
+  tube.age += deltaTime
 
   // If dying, increment death age
   if (tube.dying) {
-    tube.deathAge++
+    tube.deathAge += deltaTime
   }
 
   // Add current position to tail
@@ -260,7 +261,7 @@ function drawTailSegment(tube: Tube, segmentIndex: number): void {
   ctx.globalAlpha = 1
 }
 
-function drawTubeectHead(tube: Tube): void {
+function drawTubeHead(tube: Tube): void {
   if (!ctx) return
 
   // Calculate opacity based on tube state
@@ -311,9 +312,9 @@ function drawAllTailsLayered(): void {
   }
 }
 
-function drawAllTubeectHeads(): void {
+function drawAllTubeHeads(): void {
   tubes.forEach(tube => {
-    drawTubeectHead(tube)
+    drawTubeHead(tube)
   })
 }
 
@@ -385,8 +386,12 @@ function clearCanvas(): void {
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 }
 
-function animate(): void {
+function animate(timestamp: number): void {
   if (!ctx || !canvas) return
+
+  // Calculate delta time in milliseconds
+  const deltaTime = lastFrameTime === 0 ? 16.67 : timestamp - lastFrameTime
+  lastFrameTime = timestamp
 
   clearCanvas()
 
@@ -395,7 +400,7 @@ function animate(): void {
 
   // Update all tubes
   tubes.forEach(tube => {
-    updateTubeect(tube)
+    updateTube(tube, deltaTime)
   })
 
   // Remove tubes that have finished fading out
@@ -410,7 +415,7 @@ function animate(): void {
   drawAllTailsLayered()
 
   // Draw all tube heads on top
-  drawAllTubeectHeads()
+  drawAllTubeHeads()
 
   animId = requestAnimationFrame(animate)
 }
@@ -435,7 +440,7 @@ onMounted(() => {
   // Start spawning tubes gradually
   startSpawning()
 
-  animate()
+  animate(Date.now())
 })
 
 onUnmounted(() => {
