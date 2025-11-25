@@ -59,7 +59,7 @@ const CONFIG = {
   repulsionStrength: 50,
   repulsionDistance: 50,
   spawnInterval: 250, // milliseconds between spawns
-  fadeInDuration: 60, // frames for fade-in (60 frames = 1 second at 60fps)
+  fadeInDuration: 120, // frames for fade-in (60 frames = 1 second at 60fps)
   fadeOutDuration: 180 // frames for fade-out (60 frames = 1 second at 60fps)
 } as const
 

@@ -18,6 +18,26 @@ useHead({
     {
       name: 'viewport',
       content: 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+    },
+    {
+      name: 'description',
+      content: 'Independent creative studio of Scott Thiessen, a Seattle-based design technologist and front-end developer creating interactive experiences.'
+    },
+    {
+      property: 'og:title',
+      content: 'Moving Objects — Creative Studio of Scott Thiessen'
+    },
+    {
+      property: 'og:description',
+      content: 'Independent creative studio of Scott Thiessen, a Seattle-based design technologist and front-end developer creating interactive experiences.'
+    },
+    {
+      property: 'og:type',
+      content: 'website'
+    },
+    {
+      property: 'og:url',
+      content: 'https://movingobjects.io'
     }
   ],
   link: [],
