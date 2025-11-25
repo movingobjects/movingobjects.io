@@ -41,9 +41,7 @@ useHead({
     }
   ],
   link: [],
-  style: [
-    `body { background-color: ${THEME.colors.bg}; }`
-  ]
+  style: []
 })
 
 onMounted(() => {
