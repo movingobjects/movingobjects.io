@@ -16,6 +16,11 @@ import { THEME } from '~/config/theme'
 const router = useRouter()
 const route = useRoute()
 
+// Generate CSS custom properties from theme
+const themeStyles = Object.entries(THEME.colors)
+  .map(([key, value]) => `--color-${key}: ${value};`)
+  .join(' ')
+
 useHead({
   title: 'Moving Objects — Creative Studio of Scott Thiessen',
   meta: [
@@ -45,14 +50,14 @@ useHead({
     }
   ],
   link: [],
-  style: []
+  style: [
+    {
+      innerHTML: `:root { ${themeStyles} }`
+    }
+  ]
 })
 
 onMounted(() => {
-  Object.entries(THEME.colors).forEach(([key, value]) => {
-    document.documentElement.style.setProperty(`--color-${key}`, value)
-  })
-
   // Redirect any non-root path back to root
   if (route.path !== '/') {
     router.push('/')
