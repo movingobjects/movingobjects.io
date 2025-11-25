@@ -126,7 +126,7 @@ p {
 
 @media (max-width: 700px) {
   article {
-    font-size: 25px;
+    font-size: 30px;
   }
 }
 </style>
