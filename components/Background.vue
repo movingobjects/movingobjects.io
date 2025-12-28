@@ -136,7 +136,7 @@ function stopSpawning(): void {
   }
 }
 
-function applyGravity(tube: Tube): void {
+function applyGravity(tube: Tube, deltaMultiplier: number): void {
   if (!canvas || targets.length === 0) return
 
   // Find the nearest target
@@ -164,12 +164,12 @@ function applyGravity(tube: Tube): void {
     const effectiveDistance = Math.max(nearestDistance, minDistance)
     const force = nearestTarget.strength / effectiveDistance
 
-    tube.vx += (dx / nearestDistance) * force
-    tube.vy += (dy / nearestDistance) * force
+    tube.vx += (dx / nearestDistance) * force * deltaMultiplier
+    tube.vy += (dy / nearestDistance) * force * deltaMultiplier
   }
 }
 
-function applyRepulsion(tube: Tube): void {
+function applyRepulsion(tube: Tube, deltaMultiplier: number): void {
   tubes.forEach(otherTube => {
     if (tube === otherTube) return
 
@@ -182,13 +182,13 @@ function applyRepulsion(tube: Tube): void {
       // Stronger repulsion when closer
       const force = CONFIG.repulsionStrength / Math.max(25, distance * distance)
 
-      tube.vx += (dx / distance) * force
-      tube.vy += (dy / distance) * force
+      tube.vx += (dx / distance) * force * deltaMultiplier
+      tube.vy += (dy / distance) * force * deltaMultiplier
     }
   })
 }
 
-function updateTube(tube: Tube, deltaTime: number): void {
+function updateTube(tube: Tube, deltaTime: number, deltaMultiplier: number): void {
   if (!canvas) return
 
   // Increment age by deltaTime
@@ -206,14 +206,14 @@ function updateTube(tube: Tube, deltaTime: number): void {
   }
 
   // Apply gravity from targets
-  applyGravity(tube)
+  applyGravity(tube, deltaMultiplier)
 
   // Apply repulsion from other tubes
-  applyRepulsion(tube)
+  applyRepulsion(tube, deltaMultiplier)
 
-  // Apply friction
-  tube.vx *= CONFIG.friction
-  tube.vy *= CONFIG.friction
+  // Apply friction (exponential decay, frame-rate independent)
+  tube.vx *= Math.pow(CONFIG.friction, deltaMultiplier)
+  tube.vy *= Math.pow(CONFIG.friction, deltaMultiplier)
 
   // Limit max speed
   const speed = Math.sqrt(tube.vx * tube.vx + tube.vy * tube.vy)
@@ -223,8 +223,8 @@ function updateTube(tube: Tube, deltaTime: number): void {
   }
 
   // Update position
-  tube.x += tube.vx
-  tube.y += tube.vy
+  tube.x += tube.vx * deltaMultiplier
+  tube.y += tube.vy * deltaMultiplier
 }
 
 function drawTailSegment(tube: Tube, segmentIndex: number): void {
@@ -389,9 +389,13 @@ function clearCanvas(): void {
 function animate(timestamp: number): void {
   if (!ctx || !canvas) return
 
-  // Calculate delta time in milliseconds
-  const deltaTime = lastFrameTime === 0 ? 16.67 : timestamp - lastFrameTime
+  // Calculate delta time in milliseconds (capped to prevent huge jumps)
+  const deltaTime = Math.min(timestamp - lastFrameTime, 100)
   lastFrameTime = timestamp
+
+  // Calculate delta multiplier for frame-rate independence
+  const NORMALIZED_FPS = 60
+  const deltaMultiplier = deltaTime * (NORMALIZED_FPS / 1000)
 
   clearCanvas()
 
@@ -400,7 +404,7 @@ function animate(timestamp: number): void {
 
   // Update all tubes
   tubes.forEach(tube => {
-    updateTube(tube, deltaTime)
+    updateTube(tube, deltaTime, deltaMultiplier)
   })
 
   // Remove tubes that have finished fading out
