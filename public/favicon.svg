@@ -1,0 +1,23 @@
+<svg
+  viewBox="0 0 930 645"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg">
+
+  <style>
+    path {
+      stroke: #50f;
+    }
+    @media (prefers-color-scheme: dark) {
+      path {
+        stroke: #65f;
+      }
+    }
+  </style>
+
+  <path
+    d="M 75,290 L 75,415 A 65,65 0 0,0 205,415 L 205,290 L 205,165 A 65,65 0 0,1 335,165 L 335,290 L 335,415 A 65,65 0 0,0 465,415 L 465,290 L 465,165 A 65,65 0 0,1 595,165 L 595,290 L 595,415 A 65,65 0 0,0 725,415 L 725,290 L 725,165 A 65,65 0 0,1 855,165 L 855,290"
+    stroke-width="65"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none" />
+</svg>
