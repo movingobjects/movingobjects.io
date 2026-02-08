@@ -24,12 +24,23 @@ const configuration = {
 
 const response = await favicons(src, configuration);
 await fs.mkdir(dest, { recursive: true });
+
+const appleTouchIcons = response.images.filter((image) => {
+  if (image.name.startsWith('apple-touch-icon')) {
+    return image.name === 'apple-touch-icon-180x180.png';
+  }
+  return true;
+});
+
 await Promise.all(
-  response.images.map(
-    async (image) =>
-      await fs.writeFile(path.join(dest, image.name), image.contents),
-  ),
+  appleTouchIcons.map(async (image) => {
+    const fileName = image.name === 'apple-touch-icon-180x180.png'
+      ? 'apple-touch-icon.png'
+      : image.name;
+    await fs.writeFile(path.join(dest, fileName), image.contents);
+  }),
 );
+
 await Promise.all(
   response.files.map(
     async (file) =>
