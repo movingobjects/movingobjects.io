@@ -9,7 +9,10 @@
     "dev:clean": "rm -rf .nuxt && nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "favicons": "node scripts/generate-favicons.js",
+    "prebuild": "npm run favicons",
+    "pregenerate": "npm run favicons"
   },
   "dependencies": {
     "nuxt": "^4.2.1",
@@ -17,6 +20,7 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "favicons": "^7.2.0",
     "sass": "^1.94.2"
   }
 }
