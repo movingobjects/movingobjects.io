@@ -7,6 +7,7 @@
         memorable interactive experiences.
       </p>
     </article>
+    <img src="@/images/favicon.svg" style="position: fixed; left: 25px; bottom: 25px; width: 48px;" />
   </div>
 </template>
 

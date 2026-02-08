@@ -14,7 +14,7 @@ const configuration = {
   theme_color: "#00D96C",
   icons: {
     android: false,
-    appleIcon: [180],
+    appleIcon: true,
     appleStartup: false,
     favicons: true,
     windows: false,
