@@ -1,7 +1,6 @@
 import favicons from "favicons";
 import fs from "fs/promises";
 import path from "path";
-import { THEME } from "../config/theme.ts";
 
 const src = "./images/favicon.svg";
 const dest = "./public";
@@ -11,8 +10,8 @@ const configuration = {
   appName: "Moving Objects",
   appShortName: "Moving Objects",
   appDescription: null,
-  background: THEME.colors.logoBg,
-  theme_color: THEME.colors.logoBg,
+  background: "#00D96C",
+  theme_color: "#00D96C",
   icons: {
     android: false,
     appleIcon: [180],
